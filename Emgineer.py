@@ -17,7 +17,7 @@ bot = commands.Bot(command_prefix='>', description="This is a Helper Bot")
 # Events
 @bot.event
 async def on_ready():
-    print('My Ready is Body')
+    print('Bot started')
 
 
 @bot.listen()
