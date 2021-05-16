@@ -3,7 +3,7 @@ import random
 
 from discord import message
 
-TOKEN = 'ODQzMzMwODAxNjY0MTMxMTEy.YKCTAw.RM_FBQNRvTh7LaLHZVh3PrAerOw'
+TOKEN = 'token'
 
 
 import discord
