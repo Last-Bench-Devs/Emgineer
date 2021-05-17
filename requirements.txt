@@ -3,5 +3,6 @@ beautifulsoup4
 youtube_dl
 python-dotenv
 discord.py[voice]
+pymitter
 pynacl
 ffmpeg
