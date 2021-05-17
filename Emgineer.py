@@ -85,6 +85,7 @@ async def leave(ctx):
     if voice_client.is_connected():
         await voice_client.disconnect()
         song_queue.clear()
+        auth_queue.clear()
     else:
         await ctx.send("The bot is not connected to a voice channel.")
 
@@ -106,6 +107,12 @@ async def add(ctx):
         song_queue.append(title)
         auth_queue.append(f'**{str(ctx.message.author)}**')
         await ctx.send(f'- **{title}** added to queue\n**Queue position: **{len(song_queue)}\nRequested by **{ctx.message.author}**')
+
+@bot.command(name='clear', help='Add to queue')
+async def clear(ctx):
+    song_queue.clear()
+    auth_queue.clear()
+    await ctx.send(f'**Queue cleared.**')
 
 @bot.command(name='queue', help='View Song queue')
 async def queue(ctx):
@@ -189,13 +196,13 @@ async def resume(ctx):
     else:
         await ctx.send("The bot was not playing anything before this. Use play_song command")
 
-@bot.command(name='stop', help='Stops the song')
-async def stop(ctx):
-    voice_client = ctx.message.guild.voice_client
-    if voice_client.is_playing():
-        await voice_client.stop()
-    else:
-        await ctx.send("The bot is not playing anything at the moment.")
+# @bot.command(name='stop', help='Stops the song')
+# async def stop(ctx):
+#     voice_client = ctx.message.guild.voice_client
+#     if voice_client.is_playing():
+#         await voice_client.stop()
+#     else:
+#         await ctx.send("The bot is not playing anything at the moment.")
 
 @bot.command(name='panu', help='To find Xvideo')
 async def xvideos(ctx):
