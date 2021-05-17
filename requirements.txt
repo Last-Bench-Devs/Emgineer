@@ -6,3 +6,5 @@ discord.py[voice]
 pymitter
 pynacl
 ffmpeg
+googlesearch
+requests
