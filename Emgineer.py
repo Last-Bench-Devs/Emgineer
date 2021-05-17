@@ -116,6 +116,9 @@ async def clear(ctx):
 
 @bot.command(name='queue', help='View Song queue')
 async def queue(ctx):
+    if len(song_queue)==0:
+        await ctx.send('**Your Queue is empty.**')
+        return
     voice_channel = ctx.message.guild.voice_client
     await ctx.send("**Here's your Queue:**")
     queue = ''
