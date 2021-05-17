@@ -8,6 +8,8 @@ from bs4 import BeautifulSoup as soup
 from urllib.request import urlopen as uReg, Request
 import smtplib
 from pymitter import EventEmitter
+from googlesearch import search
+import requests
 
 ee = EventEmitter()
 
@@ -16,10 +18,27 @@ load_dotenv()
 # Get the API token from the .env file.
 DISCORD_TOKEN = os.getenv("discord_token")
 EMAIL_PASS = os.getenv("email_pass")
+COVID_KEY = os.getenv("covid_api_key")
 
 intents = discord.Intents().all()
 client = discord.Client(intents=intents)
 bot = commands.Bot(command_prefix='bc ',intents=intents)
+
+
+#covid api
+url = "https://corona-virus-world-and-india-data.p.rapidapi.com/api_india"
+
+headers = {
+    'x-rapidapi-key': COVID_KEY,
+    'x-rapidapi-host': "corona-virus-world-and-india-data.p.rapidapi.com"
+    }
+
+response = requests.request("GET", url, headers=headers)
+response1 = response.json()
+# print(response1)
+#covid api
+
+
 
 youtube_dl.utils.bug_reports_message = lambda: ''
 
@@ -261,6 +280,99 @@ async def mail(ctx):
         await ctx.send("Email send succesfully to "+mail)
     except:
         await ctx.send("Messege Not Send")
+
+@bot.command(name='search', help='to search something')
+async def mail(ctx):
+    try:
+        title = ctx.message.content[10:]
+        for i in search(title):
+                    finalReply = str(i)
+                    await ctx.send(finalReply)
+    except:
+        await ctx.send("Not Found Any Result")
+
+@bot.command(name='meme', help='to search something')
+async def mail(ctx):
+    try:
+        r = requests.get('https://meme-api.herokuapp.com/gimme/wholesomememes')
+        pic_url = r.json()['preview'][2]
+        await ctx.send(pic_url)
+        
+    except:
+        await ctx.send("No meme found")
+
+@bot.command(name='cs', help='to search something')
+async def mail(ctx):
+    try:
+        title = ctx.message.content[6:]
+        
+        string = title.split()
+                
+        for i in range(len(string)):
+            string[i] = string[i].replace(string[i], string[i].capitalize())
+
+        listToStr = ' '.join([str(elem) for elem in string])
+        await ctx.send(listToStr)
+        if(listToStr == "India"):
+                    try:
+                        for each in response1['total_values']:
+                            finalReply = each + ' : '+ response1['total_values'][each]
+                            await ctx.send(finalReply)
+                            
+                    except KeyError:
+                            finalReply = "i have not found any data of this country " + str(listToStr)
+                            await ctx.send(finalReply)
+                            
+                        
+        else:
+            try:
+                for each in response1['state_wise'][str(listToStr)]:
+                    finalReply = each + ' : ' + response1['state_wise'][str(listToStr)][each]
+                    await ctx.send(finalReply)
+                    if(each == 'statenotes'):
+                        break
+                            
+            except KeyError:
+                    finalReply = "i have not found any state with the name of " + str(listToStr)
+                    await ctx.send(finalReply)
+                        
+
+    except:
+        await ctx.send("No state Found")
+
+@bot.command(name='weather', help='to search something')
+async def mail(ctx):
+    try:
+        ciry = ctx.message.content[11:]
+        response = requests.get(f'https://api.openweathermap.org/data/2.5/weather?q={ciry}&appid=6fed6f20c4335444cc1258a52b955765').json()
+        try:
+            wind = "wind speed:s "+ str(response['wind']['speed']) + " km/h"
+            temprature = "temp: "+ str(response['main']['temp'])+" F"
+            description = "it might be "+str(response['weather'][0]['description'])+" outside"
+            humidity = "humidity is "+ str(response['main']['humidity'])+"%"
+            atm = "atm pressure "+str(response['main']['pressure'])
+            finalReply = str(temprature)+"\n"+str(wind)+"\n"+str(humidity)+"\n"+str(atm)+"\n"+str(description)
+            await ctx.send(finalReply)
+            
+        except:
+            finalReply = "i cant find the data of" + ciry
+            await ctx.send(finalReply)
+
+        
+    except:
+        await ctx.send("No meme found")
+
+@bot.command(name='joke', help='for joke')
+async def mail(ctx):
+    try:
+        r = requests.get('https://icanhazdadjoke.com/slack')
+        joke = r.json()['attachments'][0]['text']
+        finalReply = joke
+        await ctx.send(finalReply)
+        
+    except:
+        await ctx.send("At this time i dont remember a joke sorry")
+        
         
 if __name__ == "__main__" :
     bot.run(DISCORD_TOKEN)
