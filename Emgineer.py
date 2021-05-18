@@ -11,6 +11,7 @@ from pymitter import EventEmitter
 from googlesearch import search
 import requests
 
+
 ee = EventEmitter()
 
 load_dotenv()
@@ -60,6 +61,7 @@ ffmpeg_options = {
 }
 song_queue = []
 auth_queue = []
+mp3Files = []
 currently_playing = '-1'
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
@@ -102,6 +104,10 @@ async def join(ctx):
 async def leave(ctx):
     voice_client = ctx.message.guild.voice_client
     if voice_client.is_connected():
+        for i in range(0,len(mp3Files)):
+            print(mp3Files[0])
+            os.remove(mp3Files[0])
+            mp3Files.pop(0)
         await voice_client.disconnect()
         song_queue.clear()
         auth_queue.clear()
@@ -123,6 +129,7 @@ async def add(ctx):
     titles = ctx.message.content[7:].split(',')
     for title in titles:
         title = title.strip()
+        print(title)
         song_queue.append(title)
         auth_queue.append(f'**{str(ctx.message.author)}**')
         await ctx.send(f'- **{title}** added to queue\n**Queue position: **{len(song_queue)}\nRequested by **{ctx.message.author}**')
@@ -167,6 +174,7 @@ async def fs(ctx):
     os.rename(filename, filename.split(".")[0]+".mp3")
     voice_channel.stop()
     voice_channel.play(discord.FFmpegPCMAudio(filename.split(".")[0]+".mp3"))
+    mp3Files.append(filename.split(".")[0]+".mp3")
     await ctx.send('**Now playing:** {}'.format(filename.split(".")[0]))
     currently_playing = f'**{filename.split(".")[0]}**' + f', requested by {auth_queue[0]}'
     print('jdas', currently_playing)
@@ -195,6 +203,7 @@ async def play(ctx):
         filename = await YTDLSource.from_url(song_queue[0], loop=bot.loop)
         os.rename(filename, filename.split(".")[0]+".mp3")
         voice_channel.play(discord.FFmpegPCMAudio(filename.split(".")[0]+".mp3"))
+        mp3Files.append(filename.split(".")[0]+".mp3")
         await ctx.send('**Now playing:** {}'.format(filename.split(".")[0]))
         currently_playing = f'**{filename.split(".")[0]}**' + f', requested by {auth_queue[0]}'
         print('jdas', currently_playing)
