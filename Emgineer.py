@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from discord.ext import commands,tasks
 import os
@@ -10,7 +11,9 @@ import smtplib
 from pymitter import EventEmitter
 from googlesearch import search
 import requests
-
+from discord.utils import get
+from youtubesearchpython import VideosSearch,Video
+import pafy 
 
 ee = EventEmitter()
 
@@ -19,51 +22,29 @@ load_dotenv()
 # Get the API token from the .env file.
 DISCORD_TOKEN = os.getenv("discord_token")
 EMAIL_PASS = os.getenv("email_pass")
-COVID_KEY = os.getenv("covid_api_key")
+# COVID_KEY = os.getenv("covid_api_key")
 
 intents = discord.Intents().all()
 client = discord.Client(intents=intents)
-bot = commands.Bot(command_prefix='bc ',intents=intents)
+bot = commands.Bot(command_prefix="bc ")
 
+songque=[]
 
+islooped=True
 #covid api
-url = "https://corona-virus-world-and-india-data.p.rapidapi.com/api_india"
+# url = "https://corona-virus-world-and-india-data.p.rapidapi.com/api_india"
 
-headers = {
-    'x-rapidapi-key': COVID_KEY,
-    'x-rapidapi-host': "corona-virus-world-and-india-data.p.rapidapi.com"
-    }
+# headers = {
+#     'x-rapidapi-key': COVID_KEY,
+#     'x-rapidapi-host': "corona-virus-world-and-india-data.p.rapidapi.com"
+#     }
 
-response = requests.request("GET", url, headers=headers)
-response1 = response.json()
+# response = requests.request("GET", url, headers=headers)
+# response1 = response.json()
 # print(response1)
 #covid api
 
-
-
-youtube_dl.utils.bug_reports_message = lambda: ''
-
-ytdl_format_options = {
-    'format': 'bestaudio/best',
-    'restrictfilenames': True,
-    'noplaylist': True,
-    'nocheckcertificate': True,
-    'ignoreerrors': False,
-    'logtostderr': False,
-    'quiet': True,
-    'no_warnings': True,
-    'default_search': 'auto',
-    'source_address': '0.0.0.0' # bind to ipv4 since ipv6 addresses cause issues sometimes
-}
-
-ffmpeg_options = {
-    'options': '-vn'
-}
-song_queue = []
-auth_queue = []
-mp3Files = []
-currently_playing = '-1'
-ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+ytdl = youtube_dl.YoutubeDL({'outtmpl': '%(id)s%(ext)s'})
 
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
@@ -91,141 +72,166 @@ async def hello(ctx):
 async def size(ctx):
     await ctx.message.channel.send("pennice of "+str(ctx.message.author).split('#')[0]+"\n"+"8"+random.randint(1, 100)*"="+"D")
 
-@bot.command(name='join', help='Tells the bot to join the voice channel')
-async def join(ctx):
-    if not ctx.message.author.voice:
-        await ctx.send("{} is not connected to a voice channel".format(ctx.message.author.name))
-        return
+@bot.command(name='play', help='to search something')
+async def play(ctx, url):
+    voiceChannel = ctx.message.author.voice.channel
+    voice_client = get(ctx.bot.voice_clients, guild=ctx.guild)
+    if(voice_client!=None):
+        print("connected previously")
     else:
-        channel = ctx.message.author.voice.channel
-    await channel.connect()
+        await voiceChannel.connect()
+    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+    if not voice.is_playing():
+        try:
+            FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+            messege = ctx.message.content.split('bc play ')[1]
+            print(messege)
+            print(ctx.message.content)
+            videosSearch = VideosSearch(messege, limit=1)
+            video1 =videosSearch.result()
+            url = video1['result'][0]['link']
+            name=video1['result'][0]['title']
+            duration=video1['result'][0]['duration']
+            dura=duration.split(":")
+            dura.reverse()
+            durasecounds=int(dura[0])
+            for i in range(1,len(dura)):
+                durasecounds=durasecounds+int(dura[i])*60
+            print(durasecounds)
+            
+            
 
-@bot.command(name='leave', help='To make the bot leave the voice channel')
+            songque.append({
+                "name": name,
+                "stream":url,
+                "duration":durasecounds
+            })
+            await afterplay(ctx)
+        except:
+            print("some error")
+    else:
+        try:
+            FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+            messege = ctx.message.content.split('bc play ')[1]
+            print(messege)
+            print(ctx.message.content)
+            videosSearch = VideosSearch(messege, limit=1)
+            video1 =videosSearch.result()
+            url = video1['result'][0]['link']
+            name=video1['result'][0]['title']
+            duration=video1['result'][0]['duration']
+            dura=duration.split(":")
+            dura.reverse()
+            durasecounds=int(dura[0])
+            for i in range(1,len(dura)):
+                durasecounds=durasecounds+int(dura[i])*60
+            
+            
+
+            songque.append({
+                "name": name,
+                "stream":url,
+                "duration":durasecounds
+            })
+            print(songque)
+            await ctx.send(f"added to que {name}")
+        except:
+            await ctx.send("something went wrong")
+
+
+@bot.command(name='queue', help='to search something')
+async def queue(ctx):
+    for i in range(0, len(songque)):
+        await ctx.send(f"{i} {songque[i]['name']}")
+
+@bot.command(name='clear', help='to search something')
+async def clear(ctx):
+    if len(songque)>0:
+        songque.clear()
+        await ctx.send("song queue cleared")
+    else:
+        await ctx.send("There is no song in queue to clear")
+
+@bot.command(name='skip', help='to search something')
+async def skip(ctx):
+    if len(songque)>1:
+        voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+        voice.stop()
+        songque.pop(0)
+        print(len(songque))
+        print("runned")
+        print(ctx)
+        await afterplay(ctx)
+    else:
+        await ctx.send("there is no next song in the queue")
+
+@bot.command(name='leave', help='to search something')
 async def leave(ctx):
-    voice_client = ctx.message.guild.voice_client
-    if voice_client.is_connected():
-        for i in range(0,len(mp3Files)):
-            print(mp3Files[0])
-            os.remove(mp3Files[0])
-            mp3Files.pop(0)
-        await voice_client.disconnect()
-        song_queue.clear()
-        auth_queue.clear()
+    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+    if voice.is_connected():
+        songque.clear()
+        await voice.disconnect()
     else:
         await ctx.send("The bot is not connected to a voice channel.")
 
-async def queue_play(ctx):
-    voice_channel = ctx.message.guild.voice_client
-    while len(song_queue)!=0:
-        await ctx.send(f'**Searching:** {song_queue[0]}')
-        filename = await YTDLSource.from_url(song_queue[0], loop=bot.loop)
-        os.rename(filename, filename.split(".")[0]+".mp3")
-        voice_channel.play(discord.FFmpegPCMAudio(filename.split(".")[0]+".mp3"))
-        await ctx.send('**Now playing:** {}'.format(filename.split(".")[0]))
-        song_queue.pop(0)
 
-@bot.command(name='add', help='Add to queue')
-async def add(ctx):
-    titles = ctx.message.content[7:].split(',')
-    for title in titles:
-        title = title.strip()
-        print(title)
-        song_queue.append(title)
-        auth_queue.append(f'**{str(ctx.message.author)}**')
-        await ctx.send(f'- **{title}** added to queue\n**Queue position: **{len(song_queue)}\nRequested by **{ctx.message.author}**')
-
-@bot.command(name='clear', help='Add to queue')
-async def clear(ctx):
-    song_queue.clear()
-    auth_queue.clear()
-    await ctx.send(f'**Queue cleared.**')
-
-@bot.command(name='queue', help='View Song queue')
-async def queue(ctx):
-    if len(song_queue)==0:
-        await ctx.send('**Your Queue is empty.**')
-        return
-    voice_channel = ctx.message.guild.voice_client
-    await ctx.send("**Here's your Queue:**")
-    queue = ''
-    if not voice_channel.is_playing():
-        i = 1
-        for s in song_queue:
-            queue+=f'\n> {i}. **{s}**, requested by {auth_queue[i-1]}'
-            i+=1
-    else:
-        queue = f'> 1. **Currently Playing**: {currently_playing}'
-        i = 2
-        for s in song_queue:
-            queue+=f'\n> {i}. **{s}**, requested by {auth_queue[i-2]}'
-            i+=1
-    await ctx.send(queue)
-
-@bot.command(name='fs', help='Skip the current song')
-async def fs(ctx):
-    global currently_playing
-    if len(song_queue)==0:
-        await ctx.send('**Your Queue is empty.**')
-        return
-    await ctx.send(f'Skipping {currently_playing}')
-    voice_channel = ctx.message.guild.voice_client
-    await ctx.send(f'**Searching:** {song_queue[0]}')
-    filename = await YTDLSource.from_url(song_queue[0], loop=bot.loop)
-    os.rename(filename, filename.split(".")[0]+".mp3")
-    voice_channel.stop()
-    voice_channel.play(discord.FFmpegPCMAudio(filename.split(".")[0]+".mp3"))
-    mp3Files.append(filename.split(".")[0]+".mp3")
-    await ctx.send('**Now playing:** {}'.format(filename.split(".")[0]))
-    currently_playing = f'**{filename.split(".")[0]}**' + f', requested by {auth_queue[0]}'
-    print('jdas', currently_playing)
-    song_queue.pop(0)
-
-@bot.command(name='play', help='To play song')
-async def play(ctx):
-    global currently_playing
-    server = ctx.message.guild
-    voice_channel = ctx.message.guild.voice_client
-    title = ctx.message.content[8:]
-    voice_channel = ctx.message.guild.voice_client
-    if ctx.message.guild.voice_client.is_playing():
-        print("is_playing")
-        await ctx.send(f'> **Currently playing:** {currently_playing}\n> To add to queue use "add" command.\n> To view queue use "queue" command.')
-    else:
-        if len(song_queue)==0:
-            await ctx.send(f'**Your Queue is empty.\nAutomatically adding to Queue.**')
-            titles = ctx.message.content[8:].split(',')
-            for title in titles:
-                title = title.strip()
-                song_queue.append(title)
-                auth_queue.append(f'**{str(ctx.message.author)}**')
-                await ctx.send(f'- **{title}** added to queue\n**Queue position: **{len(song_queue)}\nRequested by **{ctx.message.author}**')
-        await ctx.send(f'**Searching:** {song_queue[0]}')
-        filename = await YTDLSource.from_url(song_queue[0], loop=bot.loop)
-        os.rename(filename, filename.split(".")[0]+".mp3")
-        voice_channel.play(discord.FFmpegPCMAudio(filename.split(".")[0]+".mp3"))
-        mp3Files.append(filename.split(".")[0]+".mp3")
-        await ctx.send('**Now playing:** {}'.format(filename.split(".")[0]))
-        currently_playing = f'**{filename.split(".")[0]}**' + f', requested by {auth_queue[0]}'
-        print('jdas', currently_playing)
-        song_queue.pop(0)
-        auth_queue.pop(0)
-
-
-@bot.command(name='pause', help='This command pauses the song')
+@bot.command(name='pause', help='to search something')
 async def pause(ctx):
-    voice_client = ctx.message.guild.voice_client
-    if voice_client.is_playing():
-        await voice_client.pause()
+    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+    if voice.is_playing():
+        global islooped
+        islooped=False
+        voice.pause()
     else:
-        await ctx.send("The bot is not playing anything at the moment.")
-    
-@bot.command(name='resume', help='Resumes the song')
+        await ctx.send("Currently no audio is playing.")
+
+
+@bot.command(name='resume', help='to search something')
 async def resume(ctx):
-    voice_client = ctx.message.guild.voice_client
-    if voice_client.is_paused():
-        await voice_client.resume()
+    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+    if voice.is_paused():
+        global islooped
+        islooped=True
+        voice.resume()
     else:
-        await ctx.send("The bot was not playing anything before this. Use play_song command")
+        await ctx.send("The audio is not paused.")
+
+
+@bot.command(name='stop', help='to search something')
+async def stop(ctx):
+    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+    voice.stop()
+
+
+async def afterplay(ctx):
+    print("afterplay")
+    if(len(songque)!=0):
+        FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+        video = pafy.new(songque[0]['stream']) 
+        streams = video.allstreams
+        stream = streams[0]
+        value = stream.url_https
+        await ctx.send(f"playing {songque[0]['name']} \n {songque[0]['stream']}")
+        voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+        source = await discord.FFmpegOpusAudio.from_probe(str(value), **FFMPEG_OPTIONS)
+        voice.play(source)
+        await queueafter(ctx)
+        # t = Timer(int(songque[0]['duration']), queueafter,[ctx])
+        # t.start()
+
+
+
+async def queueafter(ctx):
+    await asyncio.sleep(int(songque[0]['duration']))
+    if(islooped==True):
+        try:
+            songque.pop(0)
+            print(len(songque))
+            print("runned")
+            print(ctx)
+            await afterplay(ctx)
+        except:
+            print("queue ended")
 
 # @bot.command(name='stop', help='Stops the song')
 # async def stop(ctx):
@@ -235,44 +241,9 @@ async def resume(ctx):
 #     else:
 #         await ctx.send("The bot is not playing anything at the moment.")
 
-@bot.command(name='panu', help='To find Xvideo')
-async def xvideos(ctx):
-    title = ctx.message.content[8:]
-    try:
-        my_url = f"https://www.xvideos.com/?k={title}"
-        uClient = uReg(my_url)
-        page_html = uClient.read()
-        uClient.close()
-        page_soup = soup(page_html, "html.parser")
 
-        total = page_soup.find_all('div', {'class': 'thumb-inside'})
 
-        for i in range(0,5):
-            await ctx.send("https://www.xvideos.com"+total[i].div.a['href'])
-            
-    except:
-        await ctx.send("No matching panu")
 
-@bot.command(name='show', help='To get porn images')
-async def xvideos(ctx):
-    try:
-        title = ctx.message.content[8:]
-        query = ""
-        for i in title.split(" "):
-            query+=i+"%20"
-        my_url = f"https://www.google.com/search?q={query}%20porn&hl=en&tbm=isch"
-        req = Request(my_url, headers={'User-Agent': 'Mozilla/5.0'})
-        uClient = uReg(req)
-        page_html = uClient.read()
-        uClient.close()
-        page_soup = soup(page_html, "html.parser")
-
-        total = page_soup.find_all('img')
-        #print(total)
-        ind = random.randint(1, len(total)-1)
-        await ctx.send(total[ind].get('src'))
-    except:
-        await ctx.send("No matching panu images")
 
 @bot.command(name='mail', help='to send email')
 async def mail(ctx):
@@ -310,44 +281,44 @@ async def mail(ctx):
     except:
         await ctx.send("No meme found")
 
-@bot.command(name='cs', help='to search something')
-async def mail(ctx):
-    try:
-        title = ctx.message.content[6:]
+# @bot.command(name='cs', help='to search something')
+# async def mail(ctx):
+#     try:
+#         title = ctx.message.content[6:]
         
-        string = title.split()
+#         string = title.split()
                 
-        for i in range(len(string)):
-            string[i] = string[i].replace(string[i], string[i].capitalize())
+#         for i in range(len(string)):
+#             string[i] = string[i].replace(string[i], string[i].capitalize())
 
-        listToStr = ' '.join([str(elem) for elem in string])
-        await ctx.send(listToStr)
-        if(listToStr == "India"):
-                    try:
-                        for each in response1['total_values']:
-                            finalReply = each + ' : '+ response1['total_values'][each]
-                            await ctx.send(finalReply)
+#         listToStr = ' '.join([str(elem) for elem in string])
+#         await ctx.send(listToStr)
+#         if(listToStr == "India"):
+#                     try:
+#                         for each in response1['total_values']:
+#                             finalReply = each + ' : '+ response1['total_values'][each]
+#                             await ctx.send(finalReply)
                             
-                    except KeyError:
-                            finalReply = "i have not found any data of this country " + str(listToStr)
-                            await ctx.send(finalReply)
+#                     except KeyError:
+#                             finalReply = "i have not found any data of this country " + str(listToStr)
+#                             await ctx.send(finalReply)
                             
                         
-        else:
-            try:
-                for each in response1['state_wise'][str(listToStr)]:
-                    finalReply = each + ' : ' + response1['state_wise'][str(listToStr)][each]
-                    await ctx.send(finalReply)
-                    if(each == 'statenotes'):
-                        break
+#         else:
+#             try:
+#                 for each in response1['state_wise'][str(listToStr)]:
+#                     finalReply = each + ' : ' + response1['state_wise'][str(listToStr)][each]
+#                     await ctx.send(finalReply)
+#                     if(each == 'statenotes'):
+#                         break
                             
-            except KeyError:
-                    finalReply = "i have not found any state with the name of " + str(listToStr)
-                    await ctx.send(finalReply)
+#             except KeyError:
+#                     finalReply = "i have not found any state with the name of " + str(listToStr)
+#                     await ctx.send(finalReply)
                         
 
-    except:
-        await ctx.send("No state Found")
+#     except:
+#         await ctx.send("No state Found")
 
 @bot.command(name='weather', help='to search something')
 async def mail(ctx):
@@ -383,6 +354,4 @@ async def mail(ctx):
         await ctx.send("At this time i dont remember a joke sorry")
         
         
-if __name__ == "__main__" :
-    bot.run(DISCORD_TOKEN)
-    print("My Ready is Body")
+bot.run(DISCORD_TOKEN)

@@ -8,3 +8,5 @@ pynacl
 ffmpeg
 googlesearch-python
 requests
+youtube-search-python
+pafy
